@@ -1,0 +1,172 @@
+html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teachable Machine - Reconhecimento de Imagem</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #webcam-container {
+            margin: 15px auto;
+            border: 3px solid #ebd4d4;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 200px;
+            height: 200px;
+            background-color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #label-container {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        #label-container div {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Teachable Machine Image Model</h1>
+    <button type="button" onclick="init()">Iniciar Câmera</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+</div>
+
+<!-- Dependências do TensorFlow e Teachable Machine -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<script type="text/javascript">
+    // Link do seu modelo customizado
+    const URL = "https://teachablemachine.withgoogle.com/models/-xdoKAclS/";
+    
+    let model, webcam, labelContainer, maxPredictions;
+
+    // Inicializa o modelo e configura a webcam
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        // Altera o texto do botão para indicar carregamento
+        const btn = document.querySelector('button');
+        btn.innerText = "Carregando...";
+        btn.disabled = true;
+
+        try {
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const flip = true; // Espelha a webcam
+            webcam = new tmImage.Webcam(200, 200, flip); 
+            
+            await webcam.setup(); // Solicita permissão
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            // Insere o canvas da webcam na página
+            const webcamContainer = document.getElementById("webcam-container");
+            webcamContainer.innerHTML = ""; // Limpa o fundo cinza cinza inicial
+            webcamContainer.appendChild(webcam.canvas);
+            
+            labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = ""; // Limpa previsões anteriores se houver
+            
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+
+            // Remove o botão após iniciar com sucesso
+            btn.style.display = "none";
+
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao iniciar a câmera ou carregar o modelo. Verifique as permissões do seu navegador.");
+            btn.innerText = "Iniciar Câmera";
+            btn.disabled = false;
+        }
+    }
+
+    async function loop() {
+        webcam.update(); 
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    // Processa a imagem e exibe os resultados
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            // Formata a exibição colocando a probabilidade em porcentagem amigável
+            const percent = (prediction[i].probability * 100).toFixed(0);
+            const classPrediction = `<span>${prediction[i].className}</span> <span>${percent}%</span>`;
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+    }
+</script>
+
+</body>
+</html>
